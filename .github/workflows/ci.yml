@@ -1,0 +1,55 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: lint / typecheck / test / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check (prettier)
+        run: pnpm exec prettier --check .
+
+      - name: Lint (eslint)
+        run: pnpm lint
+
+      - name: Typecheck (tsc --noEmit)
+        run: pnpm typecheck
+
+      - name: Test (vitest)
+        run: pnpm test
+
+      - name: Build (tsdown)
+        run: pnpm build
+
+      - name: Verify tarball contents (dry-run)
+        run: |
+          pnpm pack --pack-destination /tmp/dsh-tarball
+          tar -tzf /tmp/dsh-tarball/*.tgz | sort

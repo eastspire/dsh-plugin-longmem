@@ -21,9 +21,6 @@
     "./src/*": "./src/*",
     "./package.json": "./package.json"
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/eastspire/dsh-plugin-longmem.git"
@@ -43,8 +40,10 @@
   },
   "files": [
     "lib/",
+    "src/",
     "README.md",
     "README.zh.md",
+    "CHANGELOG.md",
     "cordis.overlay.yml",
     "LICENSE"
   ],
