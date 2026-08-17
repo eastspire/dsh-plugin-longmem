@@ -1,0 +1,72 @@
+{
+  "name": "dsh-plugin-longmem",
+  "version": "0.1.0",
+  "description": "DSH plugin that gives the agent a durable per-user long-term memory: persists a structured user-config section (preferences, custom prompts, API key aliases) through the official settings seam with schema validation, hot-reload, and revision conflict detection.",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./schema": {
+      "types": "./lib/types/schema.d.ts",
+      "default": "./lib/schema.js"
+    },
+    "./namespace": {
+      "types": "./lib/types/namespace.d.ts",
+      "default": "./lib/namespace.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eastspire/dsh-plugin-longmem.git"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "cordis",
+    "settings",
+    "long-term-memory",
+    "user-config",
+    "persistence"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "files": [
+    "lib/",
+    "README.md",
+    "README.zh.md",
+    "cordis.yml",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "watch": "tsdown --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-settings": "^0.1.0",
+    "@deepseek-ai/schemastery": "^3.18.1"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-settings": "^0.1.0-rc.6",
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "@types/node": "^22.10.0",
+    "tsdown": "^0.16.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}
