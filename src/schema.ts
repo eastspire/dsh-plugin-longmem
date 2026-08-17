@@ -45,8 +45,8 @@ export type LongmemReadonly = {
   readonly [K in keyof LongmemSection]: LongmemSection[K] extends Array<infer U>
     ? ReadonlyArray<U>
     : LongmemSection[K] extends object
-    ? Readonly<LongmemSection[K]>
-    : LongmemSection[K]
+      ? Readonly<LongmemSection[K]>
+      : LongmemSection[K]
 }
 
 export interface LongmemSection {
@@ -76,17 +76,11 @@ export const LongmemSchema = z
     defaultModel: z.string().default(LONGMEM_DEFAULTS.defaultModel),
     customPrompts: z
       .array(CustomPromptSchema)
-      .default(
-        PROMPT_SLOT_NAMES.map((name) => ({ name, content: '' })),
-      ),
-    apiKeyAliases: z
-      .dict(z.string())
-      .default({ ...LONGMEM_DEFAULTS.apiKeyAliases }),
-    notes: z
-      .dict(z.any())
-      .default({ ...LONGMEM_DEFAULTS.notes }),
+      .default(PROMPT_SLOT_NAMES.map((name) => ({ name, content: '' }))),
+    apiKeyAliases: z.dict(z.string()).default({ ...LONGMEM_DEFAULTS.apiKeyAliases }),
+    notes: z.dict(z.any()).default({ ...LONGMEM_DEFAULTS.notes }),
   })
   .description(
-    "dsh-plugin-longmem: durable per-user long-term memory section. " +
-      "Persisted by the user-settings seam, read by the agent at request time.",
+    'dsh-plugin-longmem: durable per-user long-term memory section. ' +
+      'Persisted by the user-settings seam, read by the agent at request time.',
   ) as z<unknown, LongmemSection>

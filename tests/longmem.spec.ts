@@ -118,7 +118,7 @@ describe('getLongmem() without a settings provider', () => {
 
 describe('watchLongmem()', () => {
   it('fires on every committed change with frozen next/prev snapshots', async () => {
-    const { ctx, provider } = await bootWithMemory()
+    const { ctx } = await bootWithMemory()
     apply(ctx, {})
     const events: Array<{ next: string; prev: string }> = []
     watchLongmem(ctx, (next, prev) => {
@@ -126,7 +126,9 @@ describe('watchLongmem()', () => {
     })
     // The next `update` goes through the seam, which fires the watcher.
     await ctx.settings.update(LONGMEM_NAMESPACE, { defaultModel: 'updated-model' })
-    expect(events).toEqual([{ next: 'updated-model', prev: LONGMEM_DEFAULTS.defaultModel }])
+    expect(events).toEqual([
+      { next: 'updated-model', prev: LONGMEM_DEFAULTS.defaultModel },
+    ])
     // Subsequent reads are frozen.
     const section = readLongmem(ctx)
     expect(Object.isFrozen(section)).toBe(true)

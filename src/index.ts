@@ -106,7 +106,9 @@ export function readLongmem(ctx: Context): LongmemReadonly {
  *   the composition (or not — the fallback is intentional).
  * @returns either the live scope, or a detached defaults snapshot.
  */
-export function getLongmem(ctx: Context): SettingsScope<LongmemSection> | LongmemReadonly {
+export function getLongmem(
+  ctx: Context,
+): SettingsScope<LongmemSection> | LongmemReadonly {
   const binding = lookupBinding(ctx)
   if (binding !== undefined) return binding.scope
   return Object.freeze(structuredClone(LONGMEM_DEFAULTS) as LongmemSection)
@@ -189,7 +191,9 @@ function applyImpl(ctx: Context, config: Config = {}): void {
   // callers using `read()` see identity-equal references across
   // calls and stale-after-update traps disappear.
   const stopWatch = scope.watch((next) => {
-    const frozen = Object.freeze(structuredClone(next) as LongmemSection) as LongmemReadonly
+    const frozen = Object.freeze(
+      structuredClone(next) as LongmemSection,
+    ) as LongmemReadonly
     const existing = PROVIDER_BINDINGS.get(provider)
     if (existing !== undefined) {
       ;(existing.snapshot as unknown as Record<string, unknown>) = frozen
@@ -206,15 +210,18 @@ function applyImpl(ctx: Context, config: Config = {}): void {
   // `ctx.on('dispose', ...)` is not the right tool here — cordis
   // never emits a `'dispose'` event by that name, so the listener
   // would never fire.
-  ;(ctx as unknown as { fiber: { effect: (fn: () => Generator<() => void, void, void>, label: string) => unknown } }).fiber.effect(
-    function* () {
-      yield () => {
-        stopWatch()
-        PROVIDER_BINDINGS.delete(provider)
+  ;(
+    ctx as unknown as {
+      fiber: {
+        effect: (fn: () => Generator<() => void, void, void>, label: string) => unknown
       }
-    },
-    'longmem.apply',
-  )
+    }
+  ).fiber.effect(function* () {
+    yield () => {
+      stopWatch()
+      PROVIDER_BINDINGS.delete(provider)
+    }
+  }, 'longmem.apply')
 
   PROVIDER_BINDINGS.set(provider, {
     scope,

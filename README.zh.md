@@ -55,9 +55,9 @@ provider **之后**。
 ```yaml
 plugins:
   - id: settings
-    name: '@deepseek-ai/dsh-settings-file'   # 组合 ctx.settings
+    name: '@deepseek-ai/dsh-settings-file' # 组合 ctx.settings
   - id: longmem
-    name: dsh-plugin-longmem                 # 挂上 longmem 配置段
+    name: dsh-plugin-longmem # 挂上 longmem 配置段
 ```
 
 ### 用 composition `base` (推荐给团队)
@@ -119,14 +119,14 @@ config  >  用户文档  >  base  >  schema 默认值
 `longmem` 配置段是一个严格的、经过校验的对象。每个字段都有默认值,
 所以即便配置段缺失,解析出来的也是一个完整、合理的值。
 
-| 字段              | 类型                                       | 默认值              | 说明 |
-|-------------------|--------------------------------------------|---------------------|------|
-| `language`        | `'en' \| 'zh' \| 'ja' \| 'ko' \| 'fr' \| 'de' \| 'es'` | `'en'`    | Web 客户端的界面语言 |
-| `theme`           | `'light' \| 'dark' \| 'system'`            | `'system'`          | `'system'` 跟随系统 |
-| `defaultModel`    | `string`                                   | `''`                | 跨 provider 的 LLM 标识 |
-| `customPrompts`   | `Array<{ name, content }>`                 | 三个 seed 槽位,内容为空 | 长期挂载的系统 prompt 槽位 |
-| `apiKeyAliases`   | `Record<string, string>`                   | `{}`                | 友好别名 → 凭据引用 id(真正的 key 存在凭据文档里,不在这里) |
-| `notes`           | `Record<string, unknown>`                  | `{}`                | 还没给它专门开字段的零散配置都先丢这里,JSON 兼容即可 |
+| 字段            | 类型                                                   | 默认值                  | 说明                                                       |
+| --------------- | ------------------------------------------------------ | ----------------------- | ---------------------------------------------------------- |
+| `language`      | `'en' \| 'zh' \| 'ja' \| 'ko' \| 'fr' \| 'de' \| 'es'` | `'en'`                  | Web 客户端的界面语言                                       |
+| `theme`         | `'light' \| 'dark' \| 'system'`                        | `'system'`              | `'system'` 跟随系统                                        |
+| `defaultModel`  | `string`                                               | `''`                    | 跨 provider 的 LLM 标识                                    |
+| `customPrompts` | `Array<{ name, content }>`                             | 三个 seed 槽位,内容为空 | 长期挂载的系统 prompt 槽位                                 |
+| `apiKeyAliases` | `Record<string, string>`                               | `{}`                    | 友好别名 → 凭据引用 id(真正的 key 存在凭据文档里,不在这里) |
+| `notes`         | `Record<string, unknown>`                              | `{}`                    | 还没给它专门开字段的零散配置都先丢这里,JSON 兼容即可       |
 
 用户文档(比如 `~/.dsh/settings.yaml`)长这样:
 
@@ -156,10 +156,10 @@ longmem:
 
 ```ts
 import {
-  readLongmem,   // (ctx) => frozen 的 LongmemReadonly 快照
-  getLongmem,    // (ctx) => 活的 SettingsScope(或 frozen 默认值)
-  watchLongmem,  // (ctx, cb) => 取消订阅函数
-  apply,         // cordis 插件入口,被 cordis.yml 引用
+  readLongmem, // (ctx) => frozen 的 LongmemReadonly 快照
+  getLongmem, // (ctx) => 活的 SettingsScope(或 frozen 默认值)
+  watchLongmem, // (ctx, cb) => 取消订阅函数
+  apply, // cordis 插件入口,被 cordis.yml 引用
   LONGMEM_NAMESPACE,
   LONGMEM_DEFAULTS,
 } from 'dsh-plugin-longmem'
@@ -173,9 +173,9 @@ LLM prompt 的代码)。
 
 ```ts
 const section = readLongmem(ctx)
-console.log(section.language)            // 'zh'
-console.log(section.customPrompts)       // [ { name, content }, ... ]
-console.log(section.apiKeyAliases)       // { work: 'DEEPSEEK_API_KEY_WORK' }
+console.log(section.language) // 'zh'
+console.log(section.customPrompts) // [ { name, content }, ... ]
+console.log(section.apiKeyAliases) // { work: 'DEEPSEEK_API_KEY_WORK' }
 ```
 
 如果 settings provider 还没组合好,返回的是 schema 默认值的 frozen
@@ -229,11 +229,11 @@ stop()
 ```ts
 const a = readLongmem(ctx)
 const b = readLongmem(ctx)
-a === b           // true
+a === b // true
 getLongmem(ctx).update({ language: 'fr' })
 const c = readLongmem(ctx)
-a === c           // false
-c.language        // 'fr'
+a === c // false
+c.language // 'fr'
 ```
 
 也就是说在热路径上你可以安全地 memoize 读结果,测试里也能直接用

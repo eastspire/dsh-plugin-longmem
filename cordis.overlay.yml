@@ -59,7 +59,7 @@ plugins:
         defaultModel: deepseek-v4-pro
         customPrompts:
           - name: persona
-            content: 'You are a careful assistant. Answer in the user''s language.'
+            content: "You are a careful assistant. Answer in the user's language."
           - name: tool-usage
             content: 'Prefer shell execution over speculation when the user asks for live data.'
         apiKeyAliases:

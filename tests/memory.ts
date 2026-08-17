@@ -25,7 +25,10 @@ export class MemorySettings extends SettingsProvider {
   writableFlag: boolean
   persistDelayMs: number
 
-  constructor(ctx: ConstructorParameters<typeof SettingsProvider>[0], options: MemorySettingsOptions = {}) {
+  constructor(
+    ctx: ConstructorParameters<typeof SettingsProvider>[0],
+    options: MemorySettingsOptions = {},
+  ) {
     super(ctx)
     this.doc = structuredClone(options.doc ?? {})
     this.writableFlag = options.writable ?? true
@@ -40,7 +43,10 @@ export class MemorySettings extends SettingsProvider {
     return Promise.resolve(structuredClone(this.doc))
   }
 
-  protected async persist(ns: SettingsNamespace, section: Record<string, unknown>): Promise<void> {
+  protected async persist(
+    ns: SettingsNamespace,
+    section: Record<string, unknown>,
+  ): Promise<void> {
     if (this.persistDelayMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, this.persistDelayMs))
     }

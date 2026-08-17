@@ -29,7 +29,7 @@ file they can edit; the seam handles locking, debounced writes, and
 revision mismatch detection for free.
 
 This is **not** a vector store, embedding index, or RAG pipeline. It is
-the *config* layer the rest of your long-term-memory stack should be
+the _config_ layer the rest of your long-term-memory stack should be
 built on top of.
 
 ---
@@ -48,7 +48,7 @@ if your project does not already have them.
 
 ## Wire it into `cordis.yml`
 
-The plugin is a *secondary* plugin: it depends on a settings provider
+The plugin is a _secondary_ plugin: it depends on a settings provider
 being composed first. Drop the entry into your profile's `plugins:` list
 **after** the settings provider.
 
@@ -57,9 +57,9 @@ being composed first. Drop the entry into your profile's `plugins:` list
 ```yaml
 plugins:
   - id: settings
-    name: '@deepseek-ai/dsh-settings-file'   # composes ctx.settings
+    name: '@deepseek-ai/dsh-settings-file' # composes ctx.settings
   - id: longmem
-    name: dsh-plugin-longmem                 # attaches the longmem section
+    name: dsh-plugin-longmem # attaches the longmem section
 ```
 
 ### Composition `base` (recommended for teams)
@@ -97,7 +97,7 @@ plugins:
         defaultModel: deepseek-v4-pro
         customPrompts:
           - name: persona
-            content: 'You are a careful assistant. Answer in the user''s language.'
+            content: "You are a careful assistant. Answer in the user's language."
         apiKeyAliases:
           deepseek: DEEPSEEK_API_KEY
         notes:
@@ -121,14 +121,14 @@ config  >  user document  >  base  >  schema defaults
 The `longmem` section is a strict, validated object. Every field has
 a default so an absent section still resolves to a complete value.
 
-| Field           | Type                                    | Default     | Notes |
-|-----------------|-----------------------------------------|-------------|-------|
-| `language`      | `'en' \| 'zh' \| 'ja' \| 'ko' \| 'fr' \| 'de' \| 'es'` | `'en'` | UI language for Web client |
-| `theme`         | `'light' \| 'dark' \| 'system'`         | `'system'`  | `'system'` follows OS |
-| `defaultModel`  | `string`                                | `''`        | Provider-agnostic LLM id |
-| `customPrompts` | `Array<{ name, content }>`              | three seed slots, empty content | Standing system-prompt slots |
-| `apiKeyAliases` | `Record<string, string>`                | `{}`        | Friendly alias → credential ref id (the seam stores the *real* key elsewhere) |
-| `notes`         | `Record<string, unknown>`               | `{}`        | Free-form JSON-shaped bucket for things we have not given a field yet |
+| Field           | Type                                                   | Default                         | Notes                                                                         |
+| --------------- | ------------------------------------------------------ | ------------------------------- | ----------------------------------------------------------------------------- |
+| `language`      | `'en' \| 'zh' \| 'ja' \| 'ko' \| 'fr' \| 'de' \| 'es'` | `'en'`                          | UI language for Web client                                                    |
+| `theme`         | `'light' \| 'dark' \| 'system'`                        | `'system'`                      | `'system'` follows OS                                                         |
+| `defaultModel`  | `string`                                               | `''`                            | Provider-agnostic LLM id                                                      |
+| `customPrompts` | `Array<{ name, content }>`                             | three seed slots, empty content | Standing system-prompt slots                                                  |
+| `apiKeyAliases` | `Record<string, string>`                               | `{}`                            | Friendly alias → credential ref id (the seam stores the _real_ key elsewhere) |
+| `notes`         | `Record<string, unknown>`                              | `{}`                            | Free-form JSON-shaped bucket for things we have not given a field yet         |
 
 The user document (e.g. `~/.dsh/settings.yaml`) might look like:
 
@@ -160,10 +160,10 @@ the package root:
 
 ```ts
 import {
-  readLongmem,   // (ctx) => frozen LongmemReadonly snapshot
-  getLongmem,    // (ctx) => live SettingsScope (or frozen defaults)
-  watchLongmem,  // (ctx, cb) => disposer
-  apply,         // cordis plugin entry, used by `cordis.yml`
+  readLongmem, // (ctx) => frozen LongmemReadonly snapshot
+  getLongmem, // (ctx) => live SettingsScope (or frozen defaults)
+  watchLongmem, // (ctx, cb) => disposer
+  apply, // cordis plugin entry, used by `cordis.yml`
   LONGMEM_NAMESPACE,
   LONGMEM_DEFAULTS,
 } from 'dsh-plugin-longmem'
@@ -177,9 +177,9 @@ that does not own writes (an LLM prompt builder, for example).
 
 ```ts
 const section = readLongmem(ctx)
-console.log(section.language)            // 'zh'
-console.log(section.customPrompts)       // [ { name, content }, ... ]
-console.log(section.apiKeyAliases)       // { work: 'DEEPSEEK_API_KEY_WORK' }
+console.log(section.language) // 'zh'
+console.log(section.customPrompts) // [ { name, content }, ... ]
+console.log(section.apiKeyAliases) // { work: 'DEEPSEEK_API_KEY_WORK' }
 ```
 
 When the settings provider is not yet composed, returns a frozen
@@ -235,11 +235,11 @@ reference. So:
 ```ts
 const a = readLongmem(ctx)
 const b = readLongmem(ctx)
-a === b           // true
+a === b // true
 getLongmem(ctx).update({ language: 'fr' })
 const c = readLongmem(ctx)
-a === c           // false
-c.language        // 'fr'
+a === c // false
+c.language // 'fr'
 ```
 
 This means it is safe to memoize reads in hot paths and to use
@@ -250,7 +250,7 @@ This means it is safe to memoize reads in hot paths and to use
 ## Disposal
 
 The plugin registers its `SettingsScope` and watches on the cordis
-*plugin fiber* (the one `ctx.plugin(apply, ...)` returns). When the
+_plugin fiber_ (the one `ctx.plugin(apply, ...)` returns). When the
 fiber unloads — typically when the host shuts down or a profile is
 reloaded — both are torn down. Reads after disposal fall back to a
 frozen snapshot of the schema defaults, so a stale `readLongmem(ctx)`
