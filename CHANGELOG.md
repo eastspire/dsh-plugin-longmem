@@ -18,9 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   value.
 - `readLongmem(ctx)` helper that returns a frozen snapshot of the
   resolved section for use inside other plugins.
-- `applyLongmem(ctx, partial)` / `replaceLongmem(ctx, value)` helpers for
-  in-process mutations (debounced writes + revision conflict detection
-  are inherited from the composed settings provider).
+- `getLongmem(ctx)` returning a live `SettingsScope<LongmemSection>` for
+  in-process mutations, plus `watchLongmem(ctx, cb)` for change
+  subscription and `apply(ctx, partial)` for partial merges (debounced
+  writes + revision conflict detection are inherited from the composed
+  settings provider).
 - `composition: 'base' | 'config'` config switch — `base` lets the user
   document override field-by-field; `config` wins whole, useful for CI
   agents and embedded profiles.
