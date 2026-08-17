@@ -38,6 +38,17 @@ export const CustomPromptSchema = z.object({
 })
 
 /** Resolved shape of the `longmem` section after schema validation. */
+/** Read-only snapshot view of a `LongmemSection`. All nested objects
+ *  are also deep-readonly, mirroring the frozen state the seam gives
+ *  back from `settings.get()`. */
+export type LongmemReadonly = {
+  readonly [K in keyof LongmemSection]: LongmemSection[K] extends Array<infer U>
+    ? ReadonlyArray<U>
+    : LongmemSection[K] extends object
+    ? Readonly<LongmemSection[K]>
+    : LongmemSection[K]
+}
+
 export interface LongmemSection {
   language: (typeof SUPPORTED_LANGUAGES)[number]
   theme: (typeof SUPPORTED_THEMES)[number]

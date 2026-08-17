@@ -3,20 +3,20 @@
   "version": "0.1.0",
   "description": "DSH plugin that gives the agent a durable per-user long-term memory: persists a structured user-config section (preferences, custom prompts, API key aliases) through the official settings seam with schema validation, hot-reload, and revision conflict detection.",
   "type": "module",
-  "main": "lib/index.js",
-  "types": "lib/types/index.d.ts",
+  "main": "./lib/index.mjs",
+  "types": "./lib/index.d.mts",
   "exports": {
     ".": {
-      "types": "./lib/types/index.d.ts",
-      "default": "./lib/index.js"
+      "types": "./lib/index.d.mts",
+      "default": "./lib/index.mjs"
     },
     "./schema": {
-      "types": "./lib/types/schema.d.ts",
-      "default": "./lib/schema.js"
+      "types": "./lib/schema.d.mts",
+      "default": "./lib/schema.mjs"
     },
     "./namespace": {
-      "types": "./lib/types/namespace.d.ts",
-      "default": "./lib/namespace.js"
+      "types": "./lib/namespace.d.mts",
+      "default": "./lib/namespace.mjs"
     },
     "./src/*": "./src/*",
     "./package.json": "./package.json"
@@ -45,7 +45,7 @@
     "lib/",
     "README.md",
     "README.zh.md",
-    "cordis.yml",
+    "cordis.overlay.yml",
     "LICENSE"
   ],
   "scripts": {

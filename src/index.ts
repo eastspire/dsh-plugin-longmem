@@ -1,123 +1,79 @@
 /**
- * `dsh-plugin-longmem` — durable per-user long-term memory.
+ * `dsh-plugin-longmem` — public entry surface.
  *
- * Registers a `longmem` namespace on the user-settings seam
- * (`ctx.settings`) so the user document — `~/.dsh/settings.yaml` when
- * `@deepseek-ai/dsh-settings-file` is composed — carries a structured
- * section the agent and any other DSH plugin can read.
+ * The plugin attaches a `longmem` namespace to the `ctx.settings`
+ * seam provided by `@deepseek-ai/dsh-settings`. Reads always return
+ * a frozen, plain object; writes go through the seam so they are
+ * validated, persisted, and broadcast to watchers in one step.
  *
- * What this plugin owns and what it deliberately does not:
- *
- * - **Owns**: the schema, the namespace, and a small read API
- *   (`getLongmem`, `readLongmem`, `watchLongmem`). Writes go through
- *   the standard `SettingsScope.update` / `replace`, so other tools
- *   (a future settings UI, an external editor hot-reloading the YAML)
- *   all reach the same place.
- * - **Does not own**: the storage backend. Compose
- *   `@deepseek-ai/dsh-settings-file` (or any other provider); this
- *   plugin attaches once `ctx.settings` is available.
- * - **Does not own**: the agent's prompt assembly. Other plugins or the
- *   Web client read the resolved value and decide what to do with it.
- *
- * Wiring it into a profile (excerpt of `cordis.yml`):
- *
- * ```yaml
- * - id: settings
- *   name: '@deepseek-ai/dsh-settings-file'
- * - id: longmem
- *   name: dsh-plugin-longmem
- *   config:
- *     # Composition `base` layer — overridden by the user document layer.
- *     language: en
- *     theme: dark
- *     defaultModel: deepseek-v4-pro
- * ```
- *
- * @module dsh-plugin-longmem
+ * The public API has three calls — `getLongmem`, `readLongmem`,
+ * `watchLongmem` — plus the cordis `apply` entry. All three reads
+ * are designed to remain valid *before* a settings provider is
+ * composed: in that mode they return a frozen snapshot of the
+ * schema defaults so callers do not have to special-case the
+ * bootstrap path.
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import {
-  type SettingsScope,
-} from '@deepseek-ai/dsh-settings'
-import { LongmemSchema, type LongmemSection } from './schema.ts'
+import { type Context } from '@deepseek-ai/cordis'
+import type { SettingsScope } from '@deepseek-ai/dsh-settings'
+
+import { LongmemSchema, type LongmemReadonly, type LongmemSection } from './schema.ts'
 import { LONGMEM_DEFAULTS, LONGMEM_NAMESPACE } from './namespace.ts'
 
 /** Stable plugin name as it appears in `cordis.yml` (`name: dsh-plugin-longmem`). */
-export const name = 'dsh-plugin-longmem'
+export const LONGMEM_PLUGIN_NAME = 'dsh-plugin-longmem'
 
-/** Soft dependency on the settings seam. Plugin attaches once a provider is composed. */
-export const inject = ['settings'] as const
+/** Unique namespace id registered with the settings seam. */
+export { LONGMEM_NAMESPACE, LONGMEM_DEFAULTS } from './namespace.ts'
 
-/**
- * Composition-layer `Config` (the `cordis.yml` `config:` block). The
- * host passes this as the second argument to {@link apply}; we forward
- * it to the settings seam as the `base` layer so the user document
- * overrides it.
- */
+/** Composition-layer `Config` (the `cordis.yml` `config:` block). The
+ *  shape accepts `base` (a partial that merges with the schema
+ *  defaults) or `config` (a full section that wins whole). The
+ *  schema default is the third layer. */
 export interface Config {
-  /**
-   * Composition `base` layer — values that resolve below the user
-   * document. Anything not overridden by the user document inherits
-   * from this; anything not declared here inherits from the schema
-   * defaults. The same shape as the resolved value.
-   */
+  /** Partial that merges with the schema defaults; user document still wins. */
   base?: Partial<LongmemSection>
-  /**
-   * Fully-formed composition entry. When present, this entire object
-   * is the `base` layer; `base` is ignored. Useful when a profile
-   * author wants to set every field explicitly.
-   */
+  /** Whole section that overrides both `base` and the schema defaults. */
   config?: LongmemSection
 }
 
 /**
- * Re-export of the schema and namespace for callers that want to
- * integrate with this plugin without going through the settings seam
- * (e.g. a CLI that reads the YAML directly and validates against
- * the schema).
+ * Captured plugin state. There is at most one per `SettingsProvider`
+ * (i.e. one per `ctx` in tests, one per Host in production). We key
+ * on the provider itself rather than the `Context` because cordis
+ * passes a *child* `ctx` to the `apply` callback while callers hold
+ * the parent `ctx` — they are different objects but resolve to the
+ * same `SettingsProvider` singleton.
  */
-export { LongmemSchema, LONGMEM_DEFAULTS, LONGMEM_NAMESPACE }
-export type { LongmemSection, CustomPrompt } from './schema.ts'
-
-/** Frozen, read-only view of the resolved longmem section. */
-export type LongmemReadonly = Readonly<LongmemSection>
-
-/** Per-Context active binding: the live scope + a way to read a frozen snapshot. */
 interface LongmemBinding {
+  /** The owner scope returned by `register()`. */
   scope: SettingsScope<LongmemSection>
-  read: () => LongmemReadonly
+  /** Cached frozen snapshot, updated in place on every commit. */
+  snapshot: LongmemReadonly
+  /** Disposer that drops the in-place watch + removes the WeakMap
+   *  entry. Called on fiber dispose. */
+  dispose: () => void
 }
 
-/**
- * Per-Context binding map. Keyed by the `Context` that the host
- * hands to {@link apply}; cleared automatically when the fiber
- * unloads (the WeakMap entry vanishes with the context).
- */
-const BINDINGS = new WeakMap<Context, LongmemBinding>()
+/** Map of provider -> binding. We use a `WeakMap` keyed on the
+ *  `SettingsProvider` so the binding dies with the provider (and
+ *  with the test/process that owns it). The `ctx.settings` access
+ *  is a cordis Proxy, so we walk it via the public `original` symbol
+ *  to recover the underlying service instance for the key. */
+const PROVIDER_BINDINGS = new WeakMap<object, LongmemBinding>()
 
-/**
- * Read the current resolved `longmem` section.
- *
- * Returns the live `SettingsScope` when a settings provider is
- * composed, so the caller can `update` / `replace` / `watch`. Returns
- * a frozen snapshot of the schema defaults otherwise, so the call
- * stays valid before the seam is composed. Prefer this over touching
- * `ctx.settings` directly: it owns the namespace choice and the
- * "no provider yet" fallback.
- *
- * @param ctx - a Host context with `settings` already declared on the
- *   composition (or not — the fallback is intentional).
- * @returns either the live scope, or a detached defaults snapshot.
- */
-export function getLongmem(ctx: Context): SettingsScope<LongmemSection> | LongmemReadonly {
-  const binding = BINDINGS.get(ctx)
-  if (binding !== undefined) return binding.scope
-  // No settings provider composed yet — return the schema defaults
-  // as a frozen snapshot. Writes are not supported in this mode
-  // (composing `dsh-settings-file` is what enables writes), but
-  // reads remain valid.
-  return Object.freeze(structuredClone(LONGMEM_DEFAULTS) as LongmemSection)
+/** cordis-internal symbol that returns the unwrapped service value
+ *  through a Proxy (see `createTraceable` in cordis). Reading the
+ *  property on the proxy gives the raw service; reading it on the
+ *  raw service is identity. We only need the latter for the key. */
+const ORIGINAL = Symbol.for('cordis.original') as unknown as symbol
+
+/** Extract the raw service object that backs `ctx.settings` (the
+ *  cordis proxy) so we can use it as a stable key. */
+function rawProvider(ctx: Context): object {
+  const proxied = (ctx as unknown as { settings: object }).settings
+  const raw = (proxied as unknown as Record<symbol, object>)[ORIGINAL] ?? proxied
+  return raw
 }
 
 /**
@@ -126,12 +82,33 @@ export function getLongmem(ctx: Context): SettingsScope<LongmemSection> | Longme
  * so it is safe to pass to code that does not own writes (an LLM
  * prompt builder, for example).
  *
+ * When no settings provider is composed, returns a frozen snapshot
+ * of the schema defaults so bootstrap callers do not crash.
+ *
  * @param ctx - a Host context.
  * @returns a frozen deep copy of the resolved section.
  */
 export function readLongmem(ctx: Context): LongmemReadonly {
-  const binding = BINDINGS.get(ctx)
-  if (binding !== undefined) return binding.read()
+  const binding = lookupBinding(ctx)
+  if (binding !== undefined) return binding.snapshot
+  return Object.freeze(structuredClone(LONGMEM_DEFAULTS) as LongmemSection)
+}
+
+/**
+ * Return the live `SettingsScope` for `longmem`. Once the settings
+ * provider is composed, so the caller can `update` / `replace` /
+ * `watch`. Returns a frozen snapshot of the schema defaults otherwise,
+ * so the call stays valid before the seam is composed. Prefer this
+ * over touching `ctx.settings` directly: it owns the namespace
+ * choice and the "no provider yet" fallback.
+ *
+ * @param ctx - a Host context with `settings` already declared on
+ *   the composition (or not — the fallback is intentional).
+ * @returns either the live scope, or a detached defaults snapshot.
+ */
+export function getLongmem(ctx: Context): SettingsScope<LongmemSection> | LongmemReadonly {
+  const binding = lookupBinding(ctx)
+  if (binding !== undefined) return binding.scope
   return Object.freeze(structuredClone(LONGMEM_DEFAULTS) as LongmemSection)
 }
 
@@ -151,11 +128,32 @@ export function watchLongmem(
   ctx: Context,
   callback: (next: LongmemReadonly, prev: LongmemReadonly) => void | Promise<void>,
 ): () => void {
-  const binding = BINDINGS.get(ctx)
+  const binding = lookupBinding(ctx)
   if (binding === undefined) return () => {}
   return binding.scope.watch((next, prev) => {
-    return callback(Object.freeze(structuredClone(next)), Object.freeze(structuredClone(prev)))
+    return callback(
+      Object.freeze(structuredClone(next)) as LongmemReadonly,
+      Object.freeze(structuredClone(prev)) as LongmemReadonly,
+    )
   })
+}
+
+// ─── internals ──────────────────────────────────────────────────────
+
+/** Look up the binding by walking the `ctx` chain to find a context
+ *  that has a registered `longmem`. The `ctx.settings` access is a
+ *  cordis proxy, so we use `rawProvider` to recover the underlying
+ *  service instance before the WeakMap lookup. */
+function lookupBinding(ctx: Context): LongmemBinding | undefined {
+  let cur: Context | undefined = ctx
+  while (cur !== undefined) {
+    if ((cur as unknown as { settings?: object }).settings !== undefined) {
+      const hit = PROVIDER_BINDINGS.get(rawProvider(cur))
+      if (hit !== undefined) return hit
+    }
+    cur = (cur as unknown as { parent?: Context }).parent
+  }
+  return undefined
 }
 
 /**
@@ -164,30 +162,86 @@ export function watchLongmem(
  * `SettingsScope` for the public read API, and arranges for the
  * binding to be torn down when the plugin fiber unloads.
  *
+ * The plugin assumes a settings provider is already composed. Compose
+ * `@deepseek-ai/dsh-settings-file` (or another provider) in
+ * `cordis.yml` *before* this plugin to satisfy the requirement; the
+ * settings seam will surface a clear error if no provider exists.
+ *
  * Disposing the fiber removes the registration and every watcher
  * this body started.
  *
- * @param ctx - a Host context. `settings` is resolved through
- *   `ctx.inject`; this plugin waits for the provider to be composed
- *   and then attaches.
+ * @param ctx - a Host context with `settings` already composed.
  * @param config - the composition `Config` from `cordis.yml`.
  */
-export function apply(ctx: Context, config: Config = {}): void {
+function applyImpl(ctx: Context, config: Config = {}): void {
   const entry = resolveEntry(config)
+  const scope = ctx.settings.register(LONGMEM_NAMESPACE, LongmemSchema, {
+    base: entry,
+  }) as SettingsScope<LongmemSection>
 
-  // Soft-inject on `settings`. The body runs once a provider is
-  // composed; disposing the fiber disposes everything we register.
-  ctx.inject(['settings'], (settingsCtx) => {
-    const scope = settingsCtx.settings.register(LONGMEM_NAMESPACE, LongmemSchema, {
-      base: entry,
-    }) as SettingsScope<LongmemSection>
+  const provider = rawProvider(ctx)
+  // Build the first snapshot from the registration's resolved value.
+  const initial: LongmemReadonly = Object.freeze(
+    structuredClone(scope.get()) as LongmemSection,
+  )
 
-    const binding: LongmemBinding = {
-      scope,
-      read: () => Object.freeze(structuredClone(scope.get())),
+  // Mirror the scope's commits into the cached snapshot in place so
+  // callers using `read()` see identity-equal references across
+  // calls and stale-after-update traps disappear.
+  const stopWatch = scope.watch((next) => {
+    const frozen = Object.freeze(structuredClone(next) as LongmemSection) as LongmemReadonly
+    const existing = PROVIDER_BINDINGS.get(provider)
+    if (existing !== undefined) {
+      ;(existing.snapshot as unknown as Record<string, unknown>) = frozen
     }
-    BINDINGS.set(ctx, binding)
   })
+
+  // Dispose hooks: cordis disposes a fiber by running every effect's
+  // teardown. We register our cleanup as a *generator effect* — cordis
+  // calls the generator, the first `next()` runs the setup, the
+  // second `next()` collects the yielded value as a disposable and
+  // the fiber runs it on unload. The setup happens on the *plugin's*
+  // own fiber (the one that wraps `applyImpl`), which is exactly
+  // the fiber `ctx.plugin()` returns and `fiber.dispose()` ends.
+  // `ctx.on('dispose', ...)` is not the right tool here — cordis
+  // never emits a `'dispose'` event by that name, so the listener
+  // would never fire.
+  ;(ctx as unknown as { fiber: { effect: (fn: () => Generator<() => void, void, void>, label: string) => unknown } }).fiber.effect(
+    function* () {
+      yield () => {
+        stopWatch()
+        PROVIDER_BINDINGS.delete(provider)
+      }
+    },
+    'longmem.apply',
+  )
+
+  PROVIDER_BINDINGS.set(provider, {
+    scope,
+    snapshot: initial,
+    dispose: () => {
+      stopWatch()
+      PROVIDER_BINDINGS.delete(provider)
+    },
+  })
+}
+
+/**
+ * Plugin handle for `cordis.yml` (`name: dsh-plugin-longmem`). The
+ * `inject` property is the static service dependency declaration
+ * cordis consults when the plugin is loaded; without it, `ctx.settings`
+ * access would fail with `cannot get property "settings" without inject`.
+ *
+ * We attach `inject` as an own property on the function so cordis's
+ * "is the prop on the function" check passes. The function's own
+ * `name` is a frozen read-only property in strict mode, so the
+ * `dsh-plugin-longmem` value is exposed via the separate
+ * `LONGMEM_PLUGIN_NAME` export rather than as a function property.
+ */
+export const apply = Object.assign(applyImpl, {
+  inject: ['settings'] as const,
+}) as typeof applyImpl & {
+  inject: readonly ['settings']
 }
 
 /**

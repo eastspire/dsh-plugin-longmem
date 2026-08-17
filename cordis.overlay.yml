@@ -1,0 +1,70 @@
+# `cordis.yml` overlay examples for `dsh-plugin-longmem`.
+#
+# The `longmem` plugin attaches to the user-settings seam (`ctx.settings`)
+# and contributes a structured section to the user document. It depends
+# on a settings provider being composed before it; the canonical choice
+# in a profile is `@deepseek-ai/dsh-settings-file` (persists to
+# `~/.dsh/settings.yaml`).
+#
+# Drop the plugin entry you want into your profile's `plugins:` list.
+# All three overlays are mutually independent; pick the one that
+# matches the kind of override you need.
+
+# ─────────────────────────────────────────────────────────────────────
+# Overlay 1 — minimum viable: ship only the defaults.
+# Use this when the user document is the single source of truth and
+# the composition layer adds nothing.
+# ─────────────────────────────────────────────────────────────────────
+plugins:
+  - id: settings
+    name: '@deepseek-ai/dsh-settings-file'
+  - id: longmem
+    name: dsh-plugin-longmem
+
+# ─────────────────────────────────────────────────────────────────────
+# Overlay 2 — composition `base` partial.
+# Use this when the team ships a default language, theme, or model
+# name that individual users can still override in their document.
+# `base` is overridden by the user document layer; fields the user
+# does not set inherit from `base`; fields neither side sets
+# inherit from the schema defaults.
+# ─────────────────────────────────────────────────────────────────────
+plugins:
+  - id: settings
+    name: '@deepseek-ai/dsh-settings-file'
+  - id: longmem
+    name: dsh-plugin-longmem
+    config:
+      base:
+        language: en
+        theme: dark
+        defaultModel: deepseek-v4-pro
+
+# ─────────────────────────────────────────────────────────────────────
+# Overlay 3 — composition entry that fully specifies the section.
+# Use this when a profile must be self-contained and is shipped
+# without a user document layer (for example, a CI agent that should
+# not consult any per-user state). The `config` field wins whole
+# over `base`; in this overlay we set every field.
+# ─────────────────────────────────────────────────────────────────────
+plugins:
+  - id: settings
+    name: '@deepseek-ai/dsh-settings-file'
+  - id: longmem
+    name: dsh-plugin-longmem
+    config:
+      config:
+        language: en
+        theme: dark
+        defaultModel: deepseek-v4-pro
+        customPrompts:
+          - name: persona
+            content: 'You are a careful assistant. Answer in the user''s language.'
+          - name: tool-usage
+            content: 'Prefer shell execution over speculation when the user asks for live data.'
+        apiKeyAliases:
+          deepseek: 'DEEPSEEK_API_KEY'
+          openai: 'OPENAI_API_KEY'
+        notes:
+          preferredChannel: cli
+          reasoningDepth: standard
