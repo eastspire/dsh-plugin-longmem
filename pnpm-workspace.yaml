@@ -1,2 +1,9 @@
+# workspace marker for pnpm — single-package repo
+# `packages: ['.']` is required to satisfy `pnpm store path` (used by
+# actions/setup-node cache: pnpm) in non-monorepo repos that have this
+# file. Without it, pnpm 9 errors with
+#   "ERROR  packages field missing or empty"
+packages:
+  - .
 allowBuilds:
   esbuild: set this to true or false
